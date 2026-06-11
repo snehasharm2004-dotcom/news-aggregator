@@ -1,65 +1,141 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
+import Navbar from "./components/Navbar";
+import SearchBar from "./components/SearchBar";
+import NewsCard from "./components/NewsCard";
+import SavedArticles from "./components/SavedArticles";
+
+const categories = ["General", "Technology", "Business", "Sports", "Entertainment", "Health", "Science"];
 
 export default function Home() {
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [category, setCategory] = useState("General");
+  const [query, setQuery] = useState("");
+  const [saved, setSaved] = useState(() => {
+    if (typeof window !== "undefined") {
+      return JSON.parse(localStorage.getItem("savedArticles") || "[]");
+    }
+    return [];
+  });
+  const [showSaved, setShowSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchNews();
+  }, [category]);
+
+  useEffect(() => {
+    localStorage.setItem("savedArticles", JSON.stringify(saved));
+  }, [saved]);
+
+  async function fetchNews(searchQuery) {
+    setLoading(true);
+    setError("");
+    try {
+      const q = searchQuery || category;
+      const res = await fetch(
+        `https://newsapi.org/v2/everything?q=${q}&sortBy=publishedAt&pageSize=12&apiKey=${process.env.NEXT_PUBLIC_NEWS_API_KEY}`
+      );
+      const data = await res.json();
+      if (data.status === "error") throw new Error(data.message);
+      setArticles(data.articles.filter((a) => a.urlToImage));
+    } catch (err) {
+      setError("Failed to fetch news. Please try again!");
+    }
+    setLoading(false);
+  }
+
+  function handleSearch(q) {
+    setQuery(q);
+    fetchNews(q);
+  }
+
+  function toggleSave(article) {
+    setSaved((prev) => {
+      const exists = prev.find((a) => a.url === article.url);
+      if (exists) return prev.filter((a) => a.url !== article.url);
+      return [article, ...prev];
+    });
+  }
+
+  function isSaved(article) {
+    return saved.some((a) => a.url === article.url);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
+    <div style={{ minHeight: "100vh", backgroundColor: "#030712", color: "white" }}>
+      <Navbar showSaved={showSaved} setShowSaved={setShowSaved} savedCount={saved.length} />
+
+      <main style={{ maxWidth: "1200px", margin: "0 auto", padding: "100px 24px 48px" }}>
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <p style={{ color: "#a855f7", letterSpacing: "3px", fontSize: "12px", textTransform: "uppercase", marginBottom: "8px" }}>
+            STAY INFORMED
+          </p>
+          <h1 style={{ fontSize: "clamp(36px, 6vw, 64px)", fontWeight: "800", marginBottom: "16px" }}>
+            News{" "}
+            <span style={{ background: "linear-gradient(135deg, #a855f7, #06b6d4)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              Aggregator
+            </span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "16px" }}>
+            Search and read latest news from around the world
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <SearchBar onSearch={handleSearch} />
+
+        {/* Category filters */}
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", marginBottom: "40px" }}>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => { setCategory(cat); setQuery(""); }}
+              style={{
+                padding: "8px 20px",
+                borderRadius: "999px",
+                border: category === cat ? "1px solid #a855f7" : "1px solid rgba(255,255,255,0.1)",
+                background: category === cat ? "rgba(168,85,247,0.2)" : "rgba(255,255,255,0.03)",
+                color: category === cat ? "#a855f7" : "rgba(255,255,255,0.5)",
+                cursor: "pointer",
+                fontSize: "13px",
+                fontWeight: "500",
+                transition: "all 0.2s ease",
+              }}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
+
+        {showSaved ? (
+          <SavedArticles saved={saved} onToggleSave={toggleSave} />
+        ) : (
+          <>
+            {error && (
+              <div style={{ textAlign: "center", padding: "40px", color: "#f43f5e" }}>
+                <p style={{ fontSize: "40px", marginBottom: "12px" }}>⚠️</p>
+                <p>{error}</p>
+              </div>
+            )}
+
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "80px" }}>
+                <div style={{ width: "48px", height: "48px", border: "3px solid rgba(168,85,247,0.3)", borderTop: "3px solid #a855f7", borderRadius: "50%", animation: "spin 1s linear infinite", margin: "0 auto 16px" }}></div>
+                <p style={{ color: "rgba(255,255,255,0.4)" }}>Fetching latest news...</p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "24px" }}>
+                {articles.map((article, i) => (
+                  <NewsCard key={i} article={article} onToggleSave={toggleSave} isSaved={isSaved(article)} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </main>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   );
 }
