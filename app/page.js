@@ -34,9 +34,7 @@ export default function Home() {
     setError("");
     try {
       const q = searchQuery || category;
-      const res = await fetch(
-        `https://newsapi.org/v2/everything?q=${q}&sortBy=publishedAt&pageSize=12&apiKey=${process.env.NEXT_PUBLIC_NEWS_API_KEY}`
-      );
+      const res = await fetch(`/api/news?q=${q}`);
       const data = await res.json();
       if (data.status === "error") throw new Error(data.message);
       setArticles(data.articles.filter((a) => a.urlToImage));
